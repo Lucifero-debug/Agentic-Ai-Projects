@@ -1,0 +1,24 @@
+pydantic
+langchain
+langgraph
+langchain-core
+langchain-community
+python-dotenv
+langchain-groq
+arxiv
+wikipedia
+langgraph-cli[inmem]
+streamlit
+tweepy
+playwright
+
+# Gmail API dependencies
+google-api-python-client==2.124.0
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+tiktoken
+httpx==0.27.0
+
+sentence-transformers
+langchain-huggingface
+google-generativeai
