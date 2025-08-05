@@ -52,14 +52,12 @@ def fetch_transcript(state: BlogState):
         if not video_id:
             return {'transcript': 'Error: Invalid video ID'}
         
-        # Fetch transcript
         api_fetcher=YouTubeTranscriptApi()
         transcript_list = api_fetcher.fetch(
             video_id, 
             languages=[language]
         )
         
-        # Join all transcript text
         full_text = " ".join([item.text for item in transcript_list])
         
         return {'transcript': full_text}
@@ -141,7 +139,6 @@ def main():
     query = urlparse(video).query
     params = parse_qs(query)
 
-# Extract the video ID
     video_id = params.get("v", [None])[0]
     initial_state={'video_id':video_id,'language':language}
     submit=st.button("Submit")

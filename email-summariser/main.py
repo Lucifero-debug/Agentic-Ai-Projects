@@ -3,16 +3,11 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from langchain_core.prompts import PromptTemplate
 from typing_extensions import TypedDict
-from langchain_core.messages import AnyMessage
 from typing import Annotated,List,Any,Literal
 from langgraph.graph import StateGraph,START,END
-from langgraph.prebuilt import ToolNode
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import tools_condition
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-import base64
 import os
 import streamlit as st
 from langchain_groq import ChatGroq
@@ -47,7 +42,6 @@ def fetch_emails(state:EmailState)->EmailState:
     messages = results.get('messages', [])
     all_emails=[]
 
-    # Step 5: Fetch email subjects
     for msg in messages:
         msg_data = state['service'].users().messages().get(userId='me', id=msg['id'],format='full').execute()
         payload=msg_data['payload']
@@ -72,7 +66,6 @@ def fetch_emails(state:EmailState)->EmailState:
                     all_emails.append(email_data)
                     break
         else:
-            # If email doesn't have multipart
             body_data = payload.get('body', {}).get('data')
             if body_data:
                 import base64
@@ -148,7 +141,6 @@ st.title("📨 Email Summary Agent")
 
 if st.button("Connect to Gmail"):
 
-    # Example usage: fetch labels
 
     workflow=StateGraph(EmailState)
     workflow.add_node("get_service",get_service)
@@ -159,7 +151,6 @@ if st.button("Connect to Gmail"):
     workflow.add_node("increament",increament)
     workflow.add_node("final_summary",final_summary)
 
-    # edges
     workflow.add_edge(START,"get_service")
     workflow.add_edge("get_service","fetch_emails")
     workflow.add_edge("fetch_emails","split_chunks")

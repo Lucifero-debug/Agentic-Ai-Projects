@@ -7,21 +7,18 @@ async def scrape_railyatri_buses(source, destination, travel_date):
         page = await browser.new_page()
         await page.goto("https://www.railyatri.in/bus-booking", timeout=30000)
 
-        # Type source and select first suggestion
         await page.click("input[placeholder='Source City']")
         await page.fill("input[placeholder='Source City']", source)
         await page.wait_for_selector("li.AutoInput_suggestion__Gri5M", timeout=5000)
         await page.click("li.AutoInput_suggestion__Gri5M")  # First matching city
         await asyncio.sleep(1)
 
-        # Type destination and select first suggestion
         await page.click("input[placeholder='Destination City']")
         await page.fill("input[placeholder='Destination City']", destination)
         await page.wait_for_selector("li.AutoInput_suggestion__Gri5M", timeout=5000)
         await page.click("li.AutoInput_suggestion__Gri5M")
         await asyncio.sleep(1)
 
-        # Set travel date
 
         await page.wait_for_selector("div.RySearchFormWrapper_futureDateItem__XrrvO", timeout=5000)
 
@@ -29,11 +26,8 @@ async def scrape_railyatri_buses(source, destination, travel_date):
         await asyncio.sleep(1)
 
 
-        # Click Search Buses
         await page.click("button:has-text('Search')")
-        # await page.wait_for_selector("div.bus-item", timeout=20000)
 
-        # Extract buses
         buses = page.locator("div.BusListItem_item__A06dZ")
         count = await buses.count()
         print(f"🔍 Found {count} buses")
@@ -81,7 +75,6 @@ async def scrape_railyatri_buses(source, destination, travel_date):
         await browser.close()
         return results
 
-# Example usage
 if __name__ == "__main__":
     from datetime import datetime
 

@@ -36,7 +36,6 @@ import re
 
 final_output = response.content
 
-# Remove the <think>...</think> block entirely
 cleaned_output = re.sub(r"<think>.*?</think>", "", final_output, flags=re.DOTALL).strip()
 
 print(cleaned_output)

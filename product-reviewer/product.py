@@ -166,7 +166,6 @@ def fetch_reviews(state: ProductState):
             amazon_reviews = fetch_amazon_reviews(result, max_pages=2)
             reviews.extend(amazon_reviews)
 
-    # CRITICAL FIX: Make sure to return as dict with 'reviews' key
     return {'reviews': reviews}
 
 def llm_summary(state:ProductState):
@@ -215,7 +214,7 @@ def main():
             'user_query': input,
             'product_name': '',
             'product_url': [],
-            'reviews': [],  # This must be initialized
+            'reviews': [], 
             'summary': '',
             'review_url': '',
             'final_reviews': ''

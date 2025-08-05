@@ -103,7 +103,6 @@ def subsequent_weather(state:dict):
         response = requests.get(url, params=params)
         data = response.json()
         if "error" in data:
-            # ✅ Return the error message inside the state dict
             state["next_days"] = f"❌ Error: {data['error']['message']}"
             return state
 
@@ -118,8 +117,6 @@ def subsequent_weather(state:dict):
 
 
 
-    
-# Node definition
 def generate_response(state:dict)->str:
     template = """You are given:
     - user preference: {preference}
@@ -148,14 +145,12 @@ def generate_response(state:dict)->str:
     print("content",state['content'])
     return state
 
-# Build Graph
 builder=StateGraph(State)
 builder.add_node("get_context",fetch_context)
 builder.add_node("next_days",subsequent_weather)
 builder.add_node("weather_update",get_current_weather)
 builder.add_node("generate_response",generate_response)
 builder.add_node("validate_location",validate_location)
-# Edges
 builder.add_edge(START,"validate_location")
 builder.add_edge(
     "validate_location","get_context"
