@@ -11,6 +11,8 @@ langgraph-cli[inmem]
 streamlit
 tweepy
 playwright
+youtube_transcript_api
+
 
 # Gmail API dependencies
 google-api-python-client==2.124.0
