@@ -54,6 +54,8 @@ st.markdown("""
 workflow = create_workflow()
 CONFIG = {'configurable': {'thread_id': 'thread1'}}
 
+st.header("ChatBot")
+
 if "message_history" not in st.session_state:
     st.session_state["message_history"] = []
 
