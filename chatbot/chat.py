@@ -70,10 +70,10 @@ if user_input:
     
     st.session_state["message_history"].append({'role': 'user', 'content': user_input})
     
-    response = workflow.invoke({"message": [HumanMessage(content=user_input)]}, config=CONFIG)
-    
-    ai_message = response['message'][-1].content
-    st.session_state["message_history"].append({'role': 'assistant', 'content': ai_message})
-    
+
+            
     with st.chat_message('assistant'):
-        st.text(ai_message)
+                ai_message=st.write_stream(
+                    message_chunk.content for message_chunk,metadata in workflow.stream({"message": [HumanMessage(content=user_input)]}, config=CONFIG,stream_mode="messages")
+                )
+    st.session_state["message_history"].append({'role': 'assistant', 'content': ai_message})
