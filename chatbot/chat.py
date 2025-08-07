@@ -35,13 +35,11 @@ def create_workflow():
 
 st.markdown("""
 <style>
-/* Remove scroll inside chat_message containers */
 .chat-row {
     max-height: none !important;
     overflow: visible !important;
 }
 
-/* Optional: also make content wrap properly */
 .chat-row div[data-testid="stText"] {
     white-space: pre-wrap !important;
     overflow-wrap: break-word !important;
@@ -50,7 +48,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# Get persistent workflow
 workflow = create_workflow()
 CONFIG = {'configurable': {'thread_id': 'thread1'}}
 
@@ -59,7 +56,6 @@ st.header("ChatBot")
 if "message_history" not in st.session_state:
     st.session_state["message_history"] = []
 
-# Display existing message history
 for message in st.session_state["message_history"]:
     with st.chat_message(message['role']):
         st.text(message['content'])
