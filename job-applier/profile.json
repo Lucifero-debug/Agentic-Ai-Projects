@@ -1,0 +1,26 @@
+{
+    "name": "Prashant Kumar",
+    "education": "Btech 3rd year",
+    "experience": "No Experience",
+    "projects": [
+        "Ecommerce",
+        "Social Media",
+        "Blog Generator",
+        "Text Summarriser",
+        "Image Classification"
+    ],
+    "skills": [
+        "Python",
+        "Javascript",
+        "Next Js",
+        "GeneratiVe Ai",
+        "Machine Learning",
+        "Full Stack Mern"
+    ],
+    "preferences": [
+        "Internship",
+        "Remote",
+        "Paid",
+        "Freelance"
+    ]
+}
