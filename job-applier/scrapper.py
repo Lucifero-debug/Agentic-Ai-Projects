@@ -28,7 +28,7 @@ async def fetch_internshala_jobs(query, location="Jaipur", page_num=1):
         category_div = page.locator("div#select_category_chosen")
 
         input_box = category_div.locator('input.chosen-search-input')
-        await input_box.focus()     # Ensure input is focused
+        await input_box.focus()     
 
 
         for char in query:
@@ -43,7 +43,7 @@ async def fetch_internshala_jobs(query, location="Jaipur", page_num=1):
         await location_div.click()
 
         location_box = location_div.locator('input.chosen-search-input')
-        await location_box.focus()     # Ensure input is focused
+        await location_box.focus()    
 
 
         for char in location:
@@ -75,31 +75,22 @@ async def fetch_internshala_jobs(query, location="Jaipur", page_num=1):
 
                 await new_page.wait_for_selector("div#details_container div.internship_details div.text-container", timeout=5000)
 
-                # Now extract text content
                 desc_section = new_page.locator("div#details_container div.internship_details")
                 description = await desc_section.locator("div.text-container").first.inner_text()
 
-                # Skills
                 skills = await desc_section.locator("div.round_tabs_container").nth(0).all_inner_texts()
 
-                # Certifications
                 certs = await desc_section.locator("div.training_link a").all_inner_texts()
 
-                # Who can apply
                 who_can_apply = await desc_section.locator("div.who_can_apply").all_inner_texts()
 
-                # Perks
                 perks = await desc_section.locator("h3.perks_heading + div.round_tabs_container span").all_inner_texts()
 
-                # Number of openings
                 openings = await desc_section.locator("h3:has-text('Number of openings') + div.text-container").inner_text()
 
-                # Company name
                 company_name = await desc_section.locator("h2.section_heading").nth(-1).inner_text()
 
-                # Website
 
-                # About the company
                 about_company = await desc_section.locator("div.about_company_text_container").inner_text()
 
                 job_info={
@@ -154,7 +145,6 @@ async def apply_internshala_jobs(job_url,resume_path):
         except:
             print("ℹ️ No frame popup found")
 
-# Detect & fill all extra fields dynamically
         extra_inputs =  page.locator("form input, form textarea, form select")
 
         count = await extra_inputs.count()
@@ -200,7 +190,7 @@ async def apply_internshala_jobs(job_url,resume_path):
                 elif tag == "select":
                     options = await element.evaluate("el => Array.from(el.options).map(o => o.value)")
                     if options:
-                        await element.select_option(options[0])  # choose first available
+                        await element.select_option(options[0])  
                         print(f"✅ Selected dropdown {name_attr}")
 
             except Exception as e:

@@ -53,7 +53,6 @@ def get_top_5_jobs(scored_jobs: list[dict], all_jobs: list[dict]) -> list[dict]:
     sorted_jobs = sorted(scored_jobs, key=lambda job: job["score"], reverse=True)
     top_jobs = []
     for job in sorted_jobs[:5]:
-        # Match with full job in original jobs list
         full_job = next((j for j in all_jobs if j.get("Title") == job["title"]), {})
         job["full_job_info"] = full_job
         top_jobs.append(job)
