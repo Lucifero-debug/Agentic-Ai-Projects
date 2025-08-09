@@ -5,12 +5,15 @@ import json
 import os
 import tempfile
 import streamlit as st
+import re
+from pydantic import BaseModel, Field
 from langchain_groq import ChatGroq
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
+from langchain.output_parsers import PydanticOutputParser
 import asyncio
 from dotenv import load_dotenv
-from scrapper import fetch_internshala_jobs,login_internshala,apply_internshala_jobs
+from scrapper import fetch_internshala_jobs,apply_internshala_jobs,convert_cookies_to_storage_state
 load_dotenv()
 os.environ['GROQ_API_KEY']=os.getenv('GROQ_API_KEY')
 llm=ChatGroq(model='llama3-70b-8192')
@@ -70,8 +73,12 @@ def search_jobs(state:JobState):
     jobs=asyncio.run(fetch_internshala_jobs(query=state['profile']['skills'][0]))
     return {'jobs':jobs}
 
-import re
-import json
+
+
+class Resume(BaseModel):
+    resume:str=Field(description='Tailored Resume according to the job description by llm')
+
+parser1=PydanticOutputParser(pydantic_object=Resume)
 
 def score_jobs(state: JobState):
     jobs = state['jobs']
@@ -131,6 +138,8 @@ def make_resume(state:JobState):
         Projects: {", ".join(state['profile']['projects'])}
         Skills: {", ".join(state['profile']['skills'])}
         Preferences: {", ".join(state['profile']['preferences'])}
+        email:{state['profile']['email']}
+        phone:{state['profile']['phone_no']}
 
         ### Job Description:
         Title: {job['full_job_info'].get('Title', '')}
@@ -149,9 +158,15 @@ def make_resume(state:JobState):
         4. Emphasize transferable skills even if the candidate has no direct experience in this field.
         5. Include a **Summary** section tailored to the job.
         6. Keep the tone confident, concise, and relevant.
-        7. Output only the final resume in plain text without extra commentary.
+        7. Please output the resume in plain text format ONLY. Do NOT use markdown or any symbols like ** or *. Use simple dashes (-) for bullet points, and proper line breaks.
+        8. Output ONLY the final resume text. Do NOT include any introductions, explanations, or closing remarks.
+        9. Do NOT include any of these phrases anywhere in your output: 
+"Here is the tailored resume", "As requested", "Below is the resume", "Summary:", or any other introduction.
+Output ONLY the resume content, starting immediately with the candidate's name.
+
         """
         response=llm.invoke(prompt)
+        print(response.content)
         resume_data={
             "Title":job['full_job_info'].get('Title', ''),
             "Resume":response.content
@@ -210,7 +225,11 @@ def main():
     # with open ("profile.json",'w') as f:
     #     json.dump(profile,f,indent=4)
     data=load_data()
-    asyncio.run(login_internshala())
+    input_file = "cookie.json"  
+    output_file = "auth.json"     
+
+    convert_cookies_to_storage_state(input_file, output_file)    
+    # asyncio.run(login_internshala())
     workflow=initialize_graph()
     result=workflow.invoke({
         "profile":data,

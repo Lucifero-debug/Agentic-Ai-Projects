@@ -1,5 +1,35 @@
 import asyncio
 from playwright.async_api import async_playwright
+import json
+
+def normalize_samesite(value):
+    if not value:
+        return "Lax"
+    value = value.lower()
+    if value == "lax":
+        return "Lax"
+    if value == "strict":
+        return "Strict"
+    if value == "no_restriction":
+        return "None"
+    return "Lax"
+
+def convert_cookies_to_storage_state(input_path: str, output_path: str):
+    with open(input_path, 'r') as f:
+        cookies = json.load(f)
+
+    for cookie in cookies:
+        cookie['sameSite'] = normalize_samesite(cookie.get('sameSite'))
+
+    storage_state = {
+        "cookies": cookies,
+        "origins": []
+    }
+
+    with open(output_path, 'w') as f:
+        json.dump(storage_state, f, indent=4)
+
+    print(f"Converted {input_path} to Playwright storage state {output_path}")
 
 async def fetch_internshala_jobs(query, location="Jaipur", page_num=1):
     url = f"https://internshala.com/internships/page-1/#filter"
@@ -145,7 +175,9 @@ async def apply_internshala_jobs(job_url,resume_path):
         except:
             print("ℹ️ No frame popup found")
 
-        extra_inputs =  page.locator("form input, form textarea, form select")
+        application_div=page.locator("div#form-container")
+        extra_inputs = page.locator("form input:visible, form textarea:visible, form select")
+
 
         count = await extra_inputs.count()
         print(f"ℹ️ Found {count} extra fields")
@@ -172,8 +204,6 @@ async def apply_internshala_jobs(job_url,resume_path):
                         await element.fill("Default answer")
                         print(f"✅ Filled text field {name_attr}")
                     elif input_type == "radio":
-                        await page.locator("#loading_toast").wait_for(state="hidden", timeout=5000)
-
                         radio_id = await element.get_attribute("id")
                         if radio_id:
                             label = page.locator(f"label[for='{radio_id}']")
@@ -189,9 +219,30 @@ async def apply_internshala_jobs(job_url,resume_path):
 
                 elif tag == "select":
                     options = await element.evaluate("el => Array.from(el.options).map(o => o.value)")
+                        
                     if options:
-                        await element.select_option(options[0])  
-                        print(f"✅ Selected dropdown {name_attr}")
+                        select_id = await element.get_attribute("id")
+
+                        chosen_container = page.locator(f"#{select_id}_chosen")
+                        count = await chosen_container.count()
+                        if count == 0:
+                            print(f"⚠️ No chosen container found for select {select_id}, skipping.")
+                            continue
+
+                        try:
+                            await chosen_container.wait_for(state="visible", timeout=5000)
+                            await chosen_container.click()
+                            await page.wait_for_selector(f"#{select_id}_chosen ul.chosen-results li.active-result", state="visible", timeout=2000)
+                            await asyncio.sleep(0.5)
+
+                            options_list = chosen_container.locator("ul.chosen-results li.active-result")
+                            await options_list.first.wait_for(state="visible", timeout=5000)
+
+                            await options_list.nth(0).click()
+                            print(f"✅ Selected option from chosen dropdown for {select_id}")
+                        except Exception as e:
+                            print(f"⚠️ Failed to select chosen option for {select_id}: {e}")
+
 
             except Exception as e:
                 print(f"⚠️ Could not fill {name_attr}: {e}")
@@ -223,4 +274,3 @@ async def login_internshala():
         await page.wait_for_load_state("networkidle")
         await context.storage_state(path="auth.json")
         await browser.close()
-
