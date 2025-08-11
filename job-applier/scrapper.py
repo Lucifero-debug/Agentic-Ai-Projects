@@ -31,7 +31,7 @@ def convert_cookies_to_storage_state(input_path: str, output_path: str):
 
     print(f"Converted {input_path} to Playwright storage state {output_path}")
 
-async def fetch_internshala_jobs(query, location="Jaipur", page_num=1):
+async def fetch_internshala_jobs(query, location="delhi", page_num=1):
     url = f"https://internshala.com/internships/page-1/#filter"
 
     async with async_playwright() as p:

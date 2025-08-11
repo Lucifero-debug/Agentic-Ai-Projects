@@ -1,14 +1,23 @@
 from typing_extensions import TypedDict
 from typing import Annotated,List,Any,Literal
 from langgraph.graph import StateGraph,START,END
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_LEFT
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2.credentials import Credentials
+from bs4 import BeautifulSoup
+from googleapiclient.discovery import build
+from reportlab.lib.units import inch
+import base64
 import json
+from datetime import datetime, timedelta
 import os
 import tempfile
 import streamlit as st
 import re
 from pydantic import BaseModel, Field
 from langchain_groq import ChatGroq
-from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from langchain.output_parsers import PydanticOutputParser
 import asyncio
@@ -18,11 +27,15 @@ load_dotenv()
 os.environ['GROQ_API_KEY']=os.getenv('GROQ_API_KEY')
 llm=ChatGroq(model='llama3-70b-8192')
 
+SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
 class JobState(TypedDict):
     profile:List[dict]
     jobs:List[dict]
     selected_jobs:List[dict]
     resume:List[dict]
+    emails:List[dict]
+    service:Any
 
 
 profile = {
@@ -52,6 +65,25 @@ profile = {
     ]
 }
 
+def get_skill_success_weights():
+    if not os.path.exists("applications.json"):
+        return {}
+    with open("applications.json", "r") as f:
+        data = json.load(f)
+
+    success_counts = {}
+    total_counts = {}
+    for app in data:
+        for skill in app.get("skills", []):
+            total_counts[skill] = total_counts.get(skill, 0) + 1
+            if app.get("status") == "Positive":
+                success_counts[skill] = success_counts.get(skill, 0) + 1
+
+    weights = {}
+    for skill in total_counts:
+        weights[skill] = success_counts.get(skill, 0) / total_counts[skill]
+    return weights
+
 def get_top_5_jobs(scored_jobs: list[dict], all_jobs: list[dict]) -> list[dict]:
     sorted_jobs = sorted(scored_jobs, key=lambda job: job["score"], reverse=True)
     top_jobs = []
@@ -62,17 +94,124 @@ def get_top_5_jobs(scored_jobs: list[dict], all_jobs: list[dict]) -> list[dict]:
     return top_jobs
 
 def save_pdf(resume_text: str, file_path: str):
-
     doc = SimpleDocTemplate(file_path)
     styles = getSampleStyleSheet()
-    story = [Paragraph(resume_text, styles["Normal"])]
+
+    header_style = ParagraphStyle(
+        name="Header",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=14,
+        spaceAfter=6,
+        spaceBefore=12
+    )
+    normal_style = ParagraphStyle(
+        name="NormalText",
+        parent=styles["Normal"],
+        fontSize=11,
+        leading=14,
+        alignment=TA_LEFT
+    )
+
+    story = []
+
+    for line in resume_text.split("\n"):
+        line = line.strip()
+        if not line:
+            story.append(Spacer(1, 0.2*inch))
+            continue
+
+        if line.isupper() or line.endswith(":"):
+            story.append(Paragraph(line, header_style))
+        else:
+            story.append(Paragraph(line, normal_style))
+
     doc.build(story)
 
 
 def search_jobs(state:JobState):
-    jobs=asyncio.run(fetch_internshala_jobs(query=state['profile']['skills'][0]))
+    jobs=asyncio.run(fetch_internshala_jobs(query=state['profile']['skills'][4]))
     return {'jobs':jobs}
 
+def get_service(state:JobState):
+    if 'service' not in state:
+        flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+        creds = flow.run_local_server(port=0)
+        service = build('gmail', 'v1', credentials=creds)
+        return {'service':service}
+    
+def fetch_emails(state: JobState):
+    applications_file = "applications.json"
+
+    if os.path.exists(applications_file):
+        with open(applications_file, "r") as f:
+            applied_jobs = json.load(f)
+    else:
+        applied_jobs = []
+
+    seven_days_ago = (datetime.utcnow() - timedelta(days=7)).strftime("%Y/%m/%d")
+    query = f"after:{seven_days_ago} from:noreply@internshala.com"
+
+    results = state['service'].users().messages().list(userId='me', q=query).execute()
+    messages = results.get('messages', [])
+    all_emails = []
+
+    positive_keywords = ["shortlisted", "interview", "congratulations", "selected"]
+    negative_keywords = ["not shortlisted", "regret to inform", "unfortunately", "rejected"]
+
+    for msg in messages:
+        msg_data = state['service'].users().messages().get(
+            userId='me', id=msg['id'], format='full'
+        ).execute()
+
+        payload = msg_data['payload']
+        headers = payload.get('headers', [])
+        subject = next((h['value'] for h in headers if h['name'] == 'Subject'), None)
+        sender = next((h['value'] for h in headers if h['name'] == 'From'), '(Unknown Sender)')
+
+        body_data = None
+        email_body = ""
+        if payload.get('parts'):
+            for part in payload['parts']:
+                if part.get('mimeType') == 'text/plain':
+                    body_data = part['body'].get('data')
+                    break
+        else:
+            body_data = payload.get('body', {}).get('data')
+
+        if body_data:
+            decoded_body = base64.urlsafe_b64decode(body_data).decode('utf-8')
+            soup = BeautifulSoup(decoded_body, 'html.parser')
+            email_body = soup.get_text()
+
+        matched_job = None
+        for job in applied_jobs:
+            if (job['company'].lower() in email_body.lower() and
+                job['title'].lower() in email_body.lower()):
+                matched_job = job
+                break
+
+        if matched_job:
+            status = "Pending"
+            if any(word in email_body.lower() for word in positive_keywords):
+                status = "Positive"
+            elif any(word in email_body.lower() for word in negative_keywords):
+                status = "Negative"
+
+            matched_job["status"] = status
+            matched_job["last_update"] = str(datetime.now())
+
+            all_emails.append({
+                "Subject": subject,
+                "Body": email_body,
+                "Sender": sender,
+                "Matched_Job": matched_job
+            })
+
+    with open(applications_file, "w") as f:
+        json.dump(applied_jobs, f, indent=2)
+
+    return {'emails':all_emails}
 
 
 class Resume(BaseModel):
@@ -83,6 +222,7 @@ parser1=PydanticOutputParser(pydantic_object=Resume)
 def score_jobs(state: JobState):
     jobs = state['jobs']
     job_score = []
+    skill_weights = get_skill_success_weights()
     
     for job in jobs:
         prompt = f"""Given the candidate profile 
@@ -112,6 +252,13 @@ Example:
         if match:
             try:
                 result = json.loads(match.group(0))
+                base_score = result.get("score", 0)
+                score_bonus = sum(skill_weights.get(s, 0) for s in job.get("skills_required", []))
+                final_score = (base_score * 0.8) + ((score_bonus * 10) * 0.2) 
+                
+                result["score"] = round(final_score, 2)  
+                result["reason"] += f" | Skill match bonus: {round(score_bonus, 2)}"
+
                 job_score.append(result)
             except json.JSONDecodeError as e:
                 print(f"❌ JSON decode error for job {job.get('Title')}: {e}")
@@ -175,6 +322,26 @@ Output ONLY the resume content, starting immediately with the candidate's name.
     
     return {'resume':job_cv}
 
+def track_application(job, resume_text, status="Pending"):
+    applications_file = "applications.json"
+    data = []
+    if os.path.exists(applications_file):
+        with open(applications_file, "r") as f:
+            data = json.load(f)
+
+    data.append({
+        "title": job['full_job_info'].get('Title'),
+        "company": job['full_job_info'].get('company_name'),
+        "skills": job['full_job_info'].get('skills_required',[]),
+        "date_applied": str(datetime.datetime.now().date()),
+        "resume_text": resume_text,
+        "status": status
+    })
+
+    with open(applications_file, "w") as f:
+        json.dump(data, f, indent=2)
+
+
 def apply_job(state:JobState):
     jobs=state['selected_jobs']
     for job in jobs:
@@ -197,16 +364,23 @@ def apply_job(state:JobState):
         asyncio.run(apply_internshala_jobs(job_url=link,resume_path=pdf_path))
         os.remove(pdf_path)
         print("Successfully Applied")
+        track_application(job,resume_text)
+        print("Successfully Saved to database")
+
 
 
 def initialize_graph():
     graph=StateGraph(JobState)
+    graph.add_node("get_service",get_service)
     graph.add_node("search_jobs",search_jobs)
+    graph.add_node("fetch_emails",fetch_emails)
     graph.add_node("score_jobs",score_jobs)
     graph.add_node("make_resume",make_resume)
     graph.add_node("apply_job",apply_job)
 
-    graph.add_edge(START,"search_jobs")
+    graph.add_edge(START,"get_service")
+    graph.add_edge("get_service","fetch_email")
+    graph.add_edge("fetch_email","search_jobs")
     graph.add_edge("search_jobs","score_jobs")
     graph.add_edge("score_jobs","make_resume")
     graph.add_edge("make_resume","apply_job")
