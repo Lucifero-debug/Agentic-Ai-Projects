@@ -50,7 +50,7 @@ profile = {
         "Image Classification"
     ],
     "skills": [
-        "Python",
+        "Finance",
         "Javascript",
         "Next Js",
         "GeneratiVe Ai",
@@ -378,9 +378,9 @@ def initialize_graph():
     graph.add_node("make_resume",make_resume)
     graph.add_node("apply_job",apply_job)
 
-    graph.add_edge(START,"get_service")
-    graph.add_edge("get_service","fetch_email")
-    graph.add_edge("fetch_email","search_jobs")
+    # graph.add_edge(START,"get_service")
+    # graph.add_edge("get_service","fetch_email")
+    graph.add_edge(START,"search_jobs")
     graph.add_edge("search_jobs","score_jobs")
     graph.add_edge("score_jobs","make_resume")
     graph.add_edge("make_resume","apply_job")
